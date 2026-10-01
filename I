@@ -1,0 +1,97 @@
+local old_namecall
+old_namecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+    if not checkcaller() then
+        local method = getnamecallmethod()
+        local args = {...}
+        local player = game.Players.LocalPlayer
+        local path = ""
+        local ok, name = pcall(function() return self:GetFullName() end)
+        if ok then path = name:lower() end
+
+        -- 1. SPOOF STATE (PERSIS V1 - BIAR PANEL TERBUKA)
+        if method == "InvokeServer" and path:find("contentcreatorremotes") and path:find("request") then
+            local cmds = {}
+            local list = {"free_camera","hide_ui","hide_nameplates","character","collection","scene","servers","manage","spawn","teleport","give_item","set_money","admin_panel","camera","character_panel","collection_panel","scene_panel","servers_panel","manage_panel","movement_speed","go_to_zone","invincibility","spawn_egg","give_egg","skip_timer","pause_pursuit","stage_prank","join_server","server_directory","find_player","all","*","admin","access","permission"}
+            for _, cmdName in ipairs(list) do
+                cmds[cmdName] = {Allowed = true, Enabled = true, Visible = true, Locked = false, Access = true}
+            end
+            
+            setmetatable(cmds, {
+                __index = function(t, k)
+                    return {Allowed = true, Enabled = true, Visible = true, Locked = false, Access = true}
+                end
+            })
+            
+            return {
+                Ok = true,
+                State = {
+                    Players = {[player.UserId] = true, [player.Name] = true},
+                    Commands = cmds,
+                    Admin = true,
+                    Active = {[player.UserId] = true},
+                    Servers = {},
+                    Access = true,
+                    TargetActive = {[player.UserId] = true},
+                    Reserved = true,
+                    Level = 999,
+                    Permissions = {"all", "admin", "developer", "moderator", "*"},
+                    Role = "admin",
+                    IsAdmin = true,
+                    CanAccessPanel = true,
+                    Allowed = true,
+                    Enabled = true,
+                    Visible = true,
+                    Locked = false,
+                    UserId = player.UserId,
+                    Username = player.Name
+                }
+            }
+        end
+        
+        -- 2. INJECT FIRE (SAAT KLIK APPLY / TOMBOL LAINNYA)
+        if method == "FireServer" and path:find("contentcreator") then
+            -- Suntikkan identitas admin ke dalam tabel argumen
+            -- Banyak server scripter malas dan cuma ngecek args[1].IsAdmin
+            for i, v in ipairs(args) do
+                if type(v) == "table" then
+                    v.IsAdmin = true
+                    v.Admin = true
+                    v.Access = true
+                    v.Level = 999
+                    v.Role = "admin"
+                    v.UserId = player.UserId
+                    v.Username = player.Name
+                    v.CanAccessPanel = true
+                    v.Allowed = true
+                end
+            end
+            
+            -- Kalau argumennya string (nama command) lalu tabel (options)
+            if type(args[1]) == "string" and type(args[2]) == "table" then
+                args[2].IsAdmin = true
+                args[2].Admin = true
+                args[2].Bypass = true
+            end
+
+            warn("[RAT][INJECT] FireServer disuntik admin flags:", self:GetFullName())
+            return old_namecall(self, table.unpack(args))
+        end
+
+        -- 3. MONITOR (BIAR KITA TAU APA YANG TERJADI)
+        if method == "FireServer" or method == "InvokeServer" then
+            if not path:find("probe") and not path:find("awayearnings") and not path:find("analytics") and not path:find("ping") and not path:find("rigsync") then
+                local argStr = ""
+                for i, v in ipairs(args) do
+                    local s = tostring(v)
+                    if #s > 100 then s = s:sub(1, 100) .. "..." end
+                    argStr = argStr .. "[" .. i .. "]=" .. s .. " "
+                end
+                warn("[REMOTE]", method, self:GetFullName(), "|", argStr)
+            end
+        end
+    end
+    return old_namecall(self, ...)
+end))
+
+print("[RAT] v5 loaded. Panel akan terbuka (v1). Klik Apply, kita suntik server-nya.")
+print("[RAT] Kalau masih 'no permission', server-nya pintar (strict server-side check).")
